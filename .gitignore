@@ -1,0 +1,10 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.env
+
+# Database
+Chapter-8-RAG/chroma_db/
+Chapter-8-RAG/chunk_data.json

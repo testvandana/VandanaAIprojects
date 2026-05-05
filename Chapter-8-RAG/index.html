@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAG Intelligence - VWO Product Requirements</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0f111a;
+            --panel-bg: rgba(25, 28, 41, 0.7);
+            --panel-border: rgba(255, 255, 255, 0.08);
+            --text-main: #e2e8f0;
+            --text-muted: #94a3b8;
+            --accent: #3b82f6;
+            --accent-glow: rgba(59, 130, 246, 0.5);
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --chunk-bg: rgba(30, 41, 59, 0.6);
+            --highlight: rgba(59, 130, 246, 0.15);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+        }
+
+        /* Ambient Background */
+        .bg-glow {
+            position: fixed;
+            top: -20%; left: -10%;
+            width: 50vw; height: 50vw;
+            background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+            filter: blur(100px);
+            opacity: 0.3;
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        header {
+            padding: 1.5rem 2rem;
+            border-bottom: 1px solid var(--panel-border);
+            background: rgba(15, 17, 26, 0.8);
+            backdrop-filter: blur(12px);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            background: linear-gradient(to right, #60a5fa, #a78bfa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.875rem;
+            color: var(--text-muted);
+        }
+
+        .dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: var(--danger);
+            box-shadow: 0 0 8px var(--danger);
+        }
+        .dot.online {
+            background: var(--success);
+            box-shadow: 0 0 8px var(--success);
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: 350px 1fr 400px;
+            gap: 1.5rem;
+            padding: 1.5rem;
+            flex: 1;
+            height: calc(100vh - 73px);
+        }
+
+        .panel {
+            background: var(--panel-bg);
+            border: 1px solid var(--panel-border);
+            border-radius: 16px;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            backdrop-filter: blur(16px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+        }
+
+        .panel-header {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            border-bottom: 1px solid var(--panel-border);
+            padding-bottom: 0.75rem;
+        }
+
+        .scrollable {
+            flex: 1;
+            overflow-y: auto;
+            padding-right: 0.5rem;
+        }
+        .scrollable::-webkit-scrollbar { width: 6px; }
+        .scrollable::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); border-radius: 3px; }
+        .scrollable::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 3px; }
+
+        /* Left Panel - DB & Chunks */
+        .db-stats {
+            background: rgba(0,0,0,0.2);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+        }
+
+        .chunk-card {
+            background: var(--chunk-bg);
+            border: 1px solid var(--panel-border);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+        .chunk-card:hover {
+            border-color: rgba(96, 165, 250, 0.5);
+            transform: translateY(-2px);
+        }
+        .chunk-card.active-match {
+            border-color: var(--accent);
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.3);
+            background: var(--highlight);
+        }
+        .chunk-id {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            color: #60a5fa;
+            margin-bottom: 0.5rem;
+        }
+        .chunk-text {
+            font-size: 0.875rem;
+            line-height: 1.5;
+            color: var(--text-muted);
+            display: -webkit-box;
+            -webkit-line-clamp: 4;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        /* Middle Panel - Query & Chat */
+        .chat-area {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .message {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            max-width: 85%;
+        }
+        .msg-user { align-self: flex-end; }
+        .msg-ai { align-self: flex-start; }
+
+        .bubble {
+            padding: 1rem;
+            border-radius: 12px;
+            line-height: 1.6;
+            font-size: 0.95rem;
+        }
+        .msg-user .bubble {
+            background: var(--accent);
+            color: white;
+            border-bottom-right-radius: 2px;
+        }
+        .msg-ai .bubble {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--panel-border);
+            border-bottom-left-radius: 2px;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 0.75rem;
+            margin-top: auto;
+            position: relative;
+        }
+        input {
+            flex: 1;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--panel-border);
+            border-radius: 24px;
+            padding: 1rem 1.5rem;
+            color: white;
+            font-family: inherit;
+            font-size: 1rem;
+            transition: all 0.3s;
+        }
+        input:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+        }
+        button {
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 24px;
+            padding: 0 1.5rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        button:hover {
+            background: #2563eb;
+            transform: scale(1.05);
+        }
+        button:disabled {
+            background: #475569;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Right Panel - RAG Flow Diagram */
+        .flow-diagram {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            padding: 1rem 0;
+            align-items: center;
+        }
+
+        .flow-node {
+            background: rgba(30, 41, 59, 0.8);
+            border: 1px solid var(--panel-border);
+            padding: 1rem;
+            border-radius: 8px;
+            width: 80%;
+            text-align: center;
+            position: relative;
+            transition: all 0.3s;
+        }
+        .flow-node.active {
+            border-color: var(--success);
+            box-shadow: 0 0 20px rgba(16, 185, 129, 0.2);
+            transform: scale(1.05);
+        }
+        .flow-node-title {
+            font-weight: 600;
+            color: #e2e8f0;
+            margin-bottom: 0.25rem;
+        }
+        .flow-node-desc {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .flow-arrow {
+            width: 2px;
+            height: 20px;
+            background: var(--panel-border);
+            position: relative;
+        }
+        .flow-arrow::after {
+            content: '';
+            position: absolute;
+            bottom: -5px;
+            left: -4px;
+            border-width: 5px 5px 0;
+            border-style: solid;
+            border-color: var(--panel-border) transparent transparent;
+        }
+        .flow-arrow.active { background: var(--success); }
+        .flow-arrow.active::after { border-color: var(--success) transparent transparent; }
+
+        /* Loader */
+        .loader {
+            display: none;
+            width: 20px; height: 20px;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Source Chips */
+        .source-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-top: 0.75rem;
+        }
+        .chip {
+            font-size: 0.7rem;
+            padding: 0.25rem 0.5rem;
+            background: rgba(96, 165, 250, 0.1);
+            color: #60a5fa;
+            border: 1px solid rgba(96, 165, 250, 0.3);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .chip:hover {
+            background: rgba(96, 165, 250, 0.2);
+        }
+
+        /* Responsive */
+        @media (max-width: 1200px) {
+            .container { grid-template-columns: 300px 1fr; }
+            .panel-right { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-glow"></div>
+
+    <header>
+        <h1>RAG Intelligence</h1>
+        <div class="status-indicator">
+            <div class="dot" id="server-status-dot"></div>
+            <span id="server-status-text">Connecting to Server...</span>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- Panel 1: Database & Chunks -->
+        <div class="panel">
+            <div class="panel-header">
+                <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"></path></svg>
+                ChromaDB Storage
+            </div>
+            
+            <div class="db-stats" id="db-stats">
+                Loading database info...
+            </div>
+
+            <div class="panel-header" style="margin-top: 1rem; border: none; font-size: 0.9rem; color: var(--text-muted);">
+                Stored Document Chunks
+            </div>
+            
+            <div class="scrollable" id="chunks-container">
+                <div style="text-align: center; padding: 2rem; color: var(--text-muted); font-size: 0.875rem;">
+                    Loading chunks from database...
+                </div>
+            </div>
+        </div>
+
+        <!-- Panel 2: Chat / Query -->
+        <div class="panel" style="position: relative;">
+            <div class="panel-header">
+                <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path></svg>
+                Groq LLM Interface
+            </div>
+
+            <div class="scrollable chat-area" id="chat-area">
+                <div class="message msg-ai">
+                    <div class="bubble">
+                        Hello! I am connected to the VWO Product Requirements Document via local ChromaDB.<br><br>
+                        Ask me anything about the requirements, login flows, or features mentioned in the PDF.
+                    </div>
+                </div>
+            </div>
+
+            <div class="input-group">
+                <input type="text" id="query-input" placeholder="Ask about VWO requirements..." autocomplete="off">
+                <button id="send-btn">
+                    <span>Ask</span>
+                    <div class="loader" id="loader"></div>
+                </button>
+            </div>
+        </div>
+
+        <!-- Panel 3: RAG Pipeline Visualization -->
+        <div class="panel panel-right">
+            <div class="panel-header">
+                <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                RAG Pipeline Flow
+            </div>
+
+            <div class="scrollable flow-diagram">
+                <div class="flow-node" id="node-user">
+                    <div class="flow-node-title">1. User Query</div>
+                    <div class="flow-node-desc">Question submitted</div>
+                </div>
+                
+                <div class="flow-arrow" id="arrow-1"></div>
+
+                <div class="flow-node" id="node-embed">
+                    <div class="flow-node-title">2. Embedding Model</div>
+                    <div class="flow-node-desc">Nomic Embed (via Ollama)<br>Converts query to vector</div>
+                </div>
+
+                <div class="flow-arrow" id="arrow-2"></div>
+
+                <div class="flow-node" id="node-db">
+                    <div class="flow-node-title">3. ChromaDB Search</div>
+                    <div class="flow-node-desc">Cosine Similarity Search<br>Retrieves top 5 chunks</div>
+                </div>
+
+                <div class="flow-arrow" id="arrow-3"></div>
+
+                <div class="flow-node" id="node-llm">
+                    <div class="flow-node-title">4. Groq LLM</div>
+                    <div class="flow-node-desc">llama-3.1-8b-instant<br>Synthesizes answer from chunks</div>
+                </div>
+
+                <div class="flow-arrow" id="arrow-4"></div>
+
+                <div class="flow-node" id="node-output">
+                    <div class="flow-node-title">5. Final Response</div>
+                    <div class="flow-node-desc">Answer delivered to UI</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:5001';
+        
+        const ui = {
+            statusDot: document.getElementById('server-status-dot'),
+            statusText: document.getElementById('server-status-text'),
+            dbStats: document.getElementById('db-stats'),
+            chunksContainer: document.getElementById('chunks-container'),
+            chatArea: document.getElementById('chat-area'),
+            queryInput: document.getElementById('query-input'),
+            sendBtn: document.getElementById('send-btn'),
+            btnText: document.querySelector('#send-btn span'),
+            loader: document.getElementById('loader'),
+            nodes: {
+                user: document.getElementById('node-user'),
+                embed: document.getElementById('node-embed'),
+                db: document.getElementById('node-db'),
+                llm: document.getElementById('node-llm'),
+                output: document.getElementById('node-output')
+            },
+            arrows: {
+                1: document.getElementById('arrow-1'),
+                2: document.getElementById('arrow-2'),
+                3: document.getElementById('arrow-3'),
+                4: document.getElementById('arrow-4')
+            }
+        };
+
+        // Initialize
+        async function init() {
+            try {
+                const res = await fetch(`${API_BASE}/health`);
+                if (res.ok) {
+                    const data = await res.json();
+                    ui.statusDot.classList.add('online');
+                    ui.statusText.textContent = `Online - DB: ${data.doc_count} chunks`;
+                    
+                    await loadDbStats();
+                    await loadChunks();
+                } else {
+                    throw new Error('Server returned error');
+                }
+            } catch (err) {
+                ui.statusDot.classList.remove('online');
+                ui.statusText.textContent = 'Server Offline (Is rag_server.py running?)';
+                console.error(err);
+            }
+        }
+
+        async function loadDbStats() {
+            try {
+                const res = await fetch(`${API_BASE}/db_stats`);
+                const data = await res.json();
+                
+                ui.dbStats.innerHTML = `
+                    <div>Collection : <span style="color:#60a5fa">${data.collection_name}</span></div>
+                    <div>Documents  : <span style="color:#10b981">${data.total_documents} chunks</span></div>
+                    <div>Embedding  : <span style="color:#f59e0b">${data.embedding_model}</span></div>
+                `;
+            } catch (err) {
+                ui.dbStats.innerHTML = `<span style="color:var(--danger)">Error loading DB stats</span>`;
+            }
+        }
+
+        let allChunks = [];
+        
+        async function loadChunks() {
+            try {
+                const res = await fetch(`${API_BASE}/db_stats`);
+                const data = await res.json();
+                allChunks = data.documents;
+                
+                ui.chunksContainer.innerHTML = '';
+                allChunks.forEach(chunk => {
+                    const el = document.createElement('div');
+                    el.className = 'chunk-card';
+                    el.id = `chunk-el-${chunk.id}`;
+                    el.innerHTML = `
+                        <div class="chunk-id">${chunk.id} (Len: ${chunk.char_count})</div>
+                        <div class="chunk-text">${escapeHtml(chunk.text_preview)}</div>
+                    `;
+                    ui.chunksContainer.appendChild(el);
+                });
+            } catch (err) {
+                ui.chunksContainer.innerHTML = `<div style="padding:1rem; color:var(--danger)">Error loading chunks</div>`;
+            }
+        }
+
+        // Chat functionality
+        ui.sendBtn.addEventListener('click', handleQuery);
+        ui.queryInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') handleQuery();
+        });
+
+        async function handleQuery() {
+            const text = ui.queryInput.value.trim();
+            if (!text) return;
+
+            // UI State
+            ui.queryInput.value = '';
+            ui.queryInput.disabled = true;
+            ui.sendBtn.disabled = true;
+            ui.btnText.style.display = 'none';
+            ui.loader.style.display = 'block';
+
+            // Add user message
+            appendMessage('user', text);
+            
+            // Reset flow diagram
+            resetFlow();
+            activateFlow(1); // User query sent
+
+            try {
+                // Call API
+                setTimeout(() => activateFlow(2), 500); // Embedding active
+                
+                const response = await fetch(`${API_BASE}/query`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ question: text, top_k: 3 })
+                });
+                
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Server error');
+                }
+
+                // Visualize DB search
+                activateFlow(3);
+                highlightChunks(data.retrieved_chunks);
+
+                // Visualize LLM processing
+                setTimeout(() => activateFlow(4), 500);
+
+                // Show response
+                setTimeout(() => {
+                    activateFlow(5);
+                    appendAIMessage(data);
+                }, 1000);
+
+            } catch (err) {
+                appendMessage('ai', `Error: ${err.message}`);
+                resetFlow();
+            } finally {
+                ui.queryInput.disabled = false;
+                ui.sendBtn.disabled = false;
+                ui.btnText.style.display = 'block';
+                ui.loader.style.display = 'none';
+                ui.queryInput.focus();
+            }
+        }
+
+        function appendMessage(role, text) {
+            const div = document.createElement('div');
+            div.className = `message msg-${role}`;
+            div.innerHTML = `<div class="bubble">${escapeHtml(text)}</div>`;
+            ui.chatArea.appendChild(div);
+            ui.chatArea.scrollTop = ui.chatArea.scrollHeight;
+        }
+
+        function appendAIMessage(data) {
+            const div = document.createElement('div');
+            div.className = 'message msg-ai';
+            
+            let chipsHtml = data.retrieved_chunks.map(c => 
+                `<div class="chip" onmouseover="highlightSingleChunk('${c.id}')" onmouseout="clearHighlights()">Score ${c.similarity.toFixed(2)}</div>`
+            ).join('');
+
+            div.innerHTML = `
+                <div class="bubble">
+                    ${data.answer.replace(/\n/g, '<br>')}
+                    <div style="margin-top: 1rem; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 0.5rem; font-size: 0.75rem; color: var(--text-muted)">
+                        Model: ${data.groq_info.model} | Time: ${data.groq_info.response_time_sec}s
+                    </div>
+                    <div class="source-chips">
+                        ${chipsHtml}
+                    </div>
+                </div>
+            `;
+            ui.chatArea.appendChild(div);
+            ui.chatArea.scrollTop = ui.chatArea.scrollHeight;
+        }
+
+        // Flow Animation
+        function resetFlow() {
+            Object.values(ui.nodes).forEach(n => n.classList.remove('active'));
+            Object.values(ui.arrows).forEach(a => a.classList.remove('active'));
+        }
+
+        function activateFlow(step) {
+            if (step >= 1) ui.nodes.user.classList.add('active');
+            if (step >= 2) { ui.arrows[1].classList.add('active'); ui.nodes.embed.classList.add('active'); }
+            if (step >= 3) { ui.arrows[2].classList.add('active'); ui.nodes.db.classList.add('active'); }
+            if (step >= 4) { ui.arrows[3].classList.add('active'); ui.nodes.llm.classList.add('active'); }
+            if (step >= 5) { ui.arrows[4].classList.add('active'); ui.nodes.output.classList.add('active'); }
+        }
+
+        // Chunk Highlighting
+        function clearHighlights() {
+            document.querySelectorAll('.chunk-card').forEach(el => el.classList.remove('active-match'));
+        }
+
+        function highlightChunks(chunks) {
+            clearHighlights();
+            let firstEl = null;
+            chunks.forEach(c => {
+                const el = document.getElementById(`chunk-el-${c.id}`);
+                if (el) {
+                    el.classList.add('active-match');
+                    if (!firstEl) firstEl = el;
+                }
+            });
+            if (firstEl) {
+                firstEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+
+        window.highlightSingleChunk = function(id) {
+            clearHighlights();
+            const el = document.getElementById(`chunk-el-${id}`);
+            if (el) el.classList.add('active-match');
+        };
+
+        function escapeHtml(unsafe) {
+            return unsafe
+                 .replace(/&/g, "&amp;")
+                 .replace(/</g, "&lt;")
+                 .replace(/>/g, "&gt;")
+                 .replace(/"/g, "&quot;")
+                 .replace(/'/g, "&#039;");
+        }
+
+        // Start
+        init();
+    </script>
+</body>
+</html>
