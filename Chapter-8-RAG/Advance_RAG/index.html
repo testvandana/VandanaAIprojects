@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced RAG Explorer | Test Intelligence</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: #030712;
+            color: #f9fafb;
+            overflow: auto;
+        }
+        .glass {
+            background: rgba(17, 24, 39, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .glow-blue {
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.2);
+        }
+        .custom-scrollbar::-webkit-scrollbar { width: 5px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+        
+        .step-node {
+            transition: all 0.3s ease;
+            position: relative;
+        }
+        .step-node::after {
+            content: '';
+            position: absolute;
+            bottom: -20px;
+            left: 50%;
+            width: 2px;
+            height: 20px;
+            background: rgba(255,255,255,0.1);
+        }
+        .step-node:last-child::after { display: none; }
+        .step-node.active {
+            border-color: #3b82f6;
+            background: rgba(59, 130, 246, 0.1);
+            transform: scale(1.02);
+        }
+        
+        .rerank-card {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        @keyframes pulse-slow {
+            0%, 100% { opacity: 0.5; }
+            50% { opacity: 1; }
+        }
+        .animate-pulse-slow { animation: pulse-slow 3s infinite; }
+    </style>
+</head>
+<body class="h-screen flex flex-col">
+    <!-- Background Elements -->
+    <div class="fixed top-0 left-0 w-full h-full -z-10 overflow-hidden">
+        <div class="absolute -top-24 -left-24 w-96 h-96 bg-blue-600 rounded-full blur-[128px] opacity-20"></div>
+        <div class="absolute top-1/2 -right-24 w-80 h-80 bg-purple-600 rounded-full blur-[128px] opacity-10"></div>
+    </div>
+
+    <!-- Header -->
+    <header class="h-16 flex items-center justify-between px-8 border-b border-white/5 glass z-50">
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+            </div>
+            <h1 class="text-xl font-bold tracking-tight bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">
+                Advanced RAG <span class="text-blue-500 text-sm font-medium ml-1">v2.0</span>
+            </h1>
+        </div>
+        <div class="flex items-center gap-6">
+            <div id="connection-status" class="flex items-center gap-2 px-3 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-medium">
+                <span class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+                API Offline
+            </div>
+            <div class="flex items-center gap-4 text-xs text-gray-400">
+                <div class="flex flex-col items-end">
+                    <span>Embedding: <span class="text-blue-400">all-MiniLM-L6-v2</span></span>
+                    <span>Reranker: <span class="text-purple-400">BGE-Reranker</span></span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-1 flex overflow-hidden p-4 gap-4">
+        <!-- Left Side: Ingestion -->
+        <aside class="w-80 flex flex-col gap-4">
+            <div class="flex-1 glass rounded-2xl p-6 flex flex-col">
+                <h2 class="text-sm font-semibold uppercase tracking-wider text-gray-500 mb-6 flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+                    Stage 1: Ingestion
+                </h2>
+
+                <!-- Upload Box -->
+                <div id="drop-zone" class="border-2 border-dashed border-white/10 rounded-xl p-8 text-center cursor-pointer hover:border-blue-500/50 hover:bg-blue-500/5 transition-all mb-6">
+                    <input type="file" id="file-input" class="hidden" accept=".csv,.xlsx,.xls">
+                    <div class="w-12 h-12 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                    </div>
+                    <p class="text-xs text-gray-400">Upload Test Cases<br>(CSV / Excel)</p>
+                </div>
+
+                <!-- Stats -->
+                <div class="space-y-4">
+                    <div class="p-4 bg-white/5 rounded-xl border border-white/5">
+                        <div class="text-[10px] text-gray-500 uppercase font-bold mb-1">Total Vector Chunks</div>
+                        <div id="total-chunks" class="text-2xl font-mono font-bold text-blue-400">0</div>
+                    </div>
+                    <div class="p-4 bg-white/5 rounded-xl border border-white/5">
+                        <div class="text-[10px] text-gray-500 uppercase font-bold mb-1">Last Ingestion Status</div>
+                        <div id="ingest-status" class="text-xs text-gray-400 italic">No files uploaded yet.</div>
+                    </div>
+                </div>
+
+                <!-- Chunk Preview -->
+                <div class="mt-8 flex-1 flex flex-col overflow-hidden">
+                    <h3 class="text-xs font-semibold text-gray-400 mb-3">Chunking Preview</h3>
+                    <div id="chunk-preview-container" class="flex-1 overflow-y-auto custom-scrollbar space-y-2 pr-2">
+                        <div class="text-[10px] text-gray-600 italic text-center mt-4">Preview will appear after upload</div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Center: Chat -->
+        <section class="flex-1 flex flex-col gap-4">
+            <div class="flex-1 glass rounded-2xl flex flex-col overflow-hidden">
+                <div class="p-4 border-b border-white/5 flex items-center justify-between bg-white/2">
+                    <span class="text-sm font-medium text-gray-300">RAG Chat Interface</span>
+                    <div class="flex gap-2">
+                        <span class="px-2 py-0.5 rounded bg-blue-500/10 text-[10px] text-blue-400 border border-blue-500/20">Llama 3.1</span>
+                        <span class="px-2 py-0.5 rounded bg-purple-500/10 text-[10px] text-purple-400 border border-purple-500/20">Groq API</span>
+                    </div>
+                </div>
+
+                <div id="chat-messages" class="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
+                    <!-- AI Welcome -->
+                    <div class="flex gap-4 max-w-[80%]">
+                        <div class="w-8 h-8 rounded-lg bg-blue-600/20 border border-blue-500/30 flex items-center justify-center shrink-0">
+                            <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+                        </div>
+                        <div class="p-4 bg-white/5 border border-white/10 rounded-2xl rounded-tl-none text-sm leading-relaxed text-gray-200">
+                            Hello! I am your Advanced RAG assistant. Upload your test case Excel/CSV file to the left, and I'll use semantic search and BGE re-ranking to answer your queries with high precision.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Input -->
+                <div class="p-4 bg-gray-900 border-t border-white/10 relative z-[100]">
+                    <div class="flex gap-2">
+                        <textarea id="query-input" placeholder="Type your message here..." rows="1"
+                               class="flex-1 bg-white/10 border border-white/20 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none overflow-hidden"
+                               style="color: white !important; -webkit-text-fill-color: white !important;"></textarea>
+                        <button id="send-btn" class="px-6 bg-blue-600 hover:bg-blue-500 rounded-lg font-bold transition-all disabled:opacity-50">
+                            Send
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Right Side: Advanced Flow -->
+        <aside class="w-96 flex flex-col gap-4">
+            <div class="flex-1 glass rounded-2xl p-6 flex flex-col">
+                <h2 class="text-sm font-semibold uppercase tracking-wider text-gray-500 mb-6 flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                    Advanced Pipeline Flow
+                </h2>
+
+                <!-- Step Visualizer -->
+                <div class="space-y-8 relative py-4">
+                    <div id="step-1" class="step-node p-4 glass rounded-xl border border-white/5">
+                        <div class="flex items-center gap-3 mb-1">
+                            <span class="w-5 h-5 flex items-center justify-center rounded-full bg-blue-500 text-[10px] font-bold">1</span>
+                            <span class="text-xs font-bold text-gray-300">Retrieval (Vector Search)</span>
+                        </div>
+                        <p class="text-[10px] text-gray-500">Searching ChromaDB for top 10 matches...</p>
+                        <div id="retrieval-results-count" class="mt-2 text-xs font-mono text-blue-400 hidden">Found 10 candidates</div>
+                    </div>
+
+                    <div id="step-2" class="step-node p-4 glass rounded-xl border border-white/5">
+                        <div class="flex items-center gap-3 mb-1">
+                            <span class="w-5 h-5 flex items-center justify-center rounded-full bg-purple-500 text-[10px] font-bold">2</span>
+                            <span class="text-xs font-bold text-gray-300">BGE Re-ranking</span>
+                        </div>
+                        <p class="text-[10px] text-gray-500">Cross-encoding query and documents...</p>
+                    </div>
+
+                    <div id="step-3" class="step-node p-4 glass rounded-xl border border-white/5">
+                        <div class="flex items-center gap-3 mb-1">
+                            <span class="w-5 h-5 flex items-center justify-center rounded-full bg-green-500 text-[10px] font-bold">3</span>
+                            <span class="text-xs font-bold text-gray-300">LLM Context Refinement</span>
+                        </div>
+                        <p class="text-[10px] text-gray-500">Generating final answer with top 5 re-ranked results...</p>
+                    </div>
+                </div>
+
+                <!-- Re-ranking Visualization -->
+                <div class="mt-10 flex-1 flex flex-col overflow-hidden">
+                    <h3 class="text-xs font-semibold text-gray-400 mb-4 flex justify-between items-center">
+                        Re-ranking Score Delta
+                        <span class="text-[10px] font-normal text-gray-600">Old vs New Rank</span>
+                    </h3>
+                    <div id="rerank-visualization" class="flex-1 overflow-y-auto custom-scrollbar space-y-3 pr-2">
+                        <div class="h-full flex flex-col items-center justify-center text-[10px] text-gray-600 italic text-center px-8">
+                            Query a question to see how BGE reranks the results for higher precision.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+    </main>
+
+    <script>
+        const API_BASE = '';
+        
+        let ui = {};
+        
+        // Initialize and Health Check
+        async function init() {
+            // Select elements inside init
+            ui = {
+                connectionStatus: document.getElementById('connection-status'),
+                fileInput: document.getElementById('file-input'),
+                dropZone: document.getElementById('drop-zone'),
+                totalChunks: document.getElementById('total-chunks'),
+                ingestStatus: document.getElementById('ingest-status'),
+                chunkPreview: document.getElementById('chunk-preview-container'),
+                chatMessages: document.getElementById('chat-messages'),
+                queryInput: document.getElementById('query-input'),
+                sendBtn: document.getElementById('send-btn'),
+                steps: {
+                    1: document.getElementById('step-1'),
+                    2: document.getElementById('step-2'),
+                    3: document.getElementById('step-3')
+                },
+                rerankVis: document.getElementById('rerank-visualization')
+            };
+
+            // Basic Event Listeners
+            ui.sendBtn.onclick = handleQuery;
+            ui.queryInput.onkeydown = (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleQuery();
+                }
+            };
+
+            // File Upload
+            ui.dropZone.onclick = () => ui.fileInput.click();
+            ui.fileInput.onchange = (e) => handleFileUpload(e.target.files[0]);
+
+            try {
+                const res = await fetch(`${API_BASE}/health`);
+                if (res.ok) {
+                    ui.connectionStatus.innerHTML = '<span class="w-2 h-2 rounded-full bg-green-500"></span> API Online';
+                    ui.connectionStatus.classList.replace('bg-red-500/10', 'bg-green-500/10');
+                    ui.connectionStatus.classList.replace('border-red-500/20', 'bg-green-500/20');
+                    ui.connectionStatus.classList.replace('text-red-400', 'text-green-400');
+                    updateStats();
+                }
+            } catch (err) {
+                console.error("Connection failed:", err);
+            }
+            
+            // Focus input
+            ui.queryInput.focus();
+        }
+
+        async function updateStats() {
+            try {
+                const res = await fetch(`${API_BASE}/stats`);
+                const data = await res.json();
+                ui.totalChunks.textContent = data.total_chunks.toLocaleString();
+            } catch (err) {}
+        }
+
+        // File Upload
+        async function handleFileUpload(file) {
+            if (!file) return;
+            
+            ui.ingestStatus.textContent = "Processing file...";
+            ui.ingestStatus.classList.add('animate-pulse-slow');
+            
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const res = await fetch(`${API_BASE}/upload`, {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await res.json();
+                
+                if (res.ok) {
+                    ui.ingestStatus.textContent = `Success! ${data.count} test cases ingested.`;
+                    ui.ingestStatus.classList.remove('animate-pulse-slow');
+                    ui.ingestStatus.classList.add('text-green-400');
+                    updateStats();
+                    
+                    // Show Preview
+                    ui.chunkPreview.innerHTML = data.preview.map((p, i) => `
+                        <div class="p-3 bg-white/2 border border-white/5 rounded-lg text-[9px] text-gray-500 font-mono leading-tight">
+                            <span class="text-blue-500 font-bold">#${i+1}</span> ${p.substring(0, 150)}...
+                        </div>
+                    `).join('');
+                } else {
+                    throw new Error(data.detail);
+                }
+            } catch (err) {
+                ui.ingestStatus.textContent = "Upload failed: " + err.message;
+                ui.ingestStatus.classList.add('text-red-400');
+            }
+        }
+
+        async function handleQuery() {
+            const query = ui.queryInput.value.trim();
+            if (!query || ui.sendBtn.disabled) return;
+
+            // UI State: Disable input while processing
+            ui.queryInput.value = '';
+            ui.queryInput.disabled = true;
+            ui.sendBtn.disabled = true;
+            
+            appendMessage('user', query);
+            resetSteps();
+
+            try {
+                // Step 1: Retrieval
+                activateStep(1);
+                const res = await fetch(`${API_BASE}/query`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query: query })
+                });
+                
+                if (!res.ok) {
+                    const errorData = await res.json();
+                    throw new Error(errorData.detail || "Server error");
+                }
+                
+                const data = await res.json();
+
+                // Step 2: Reranking visualization (Faster feedback)
+                activateStep(2);
+                visualizeReranking(data.reranked_results);
+
+                // Step 3: LLM Generation
+                activateStep(3);
+                appendMessage('ai', data.answer);
+
+            } catch (err) {
+                console.error(err);
+                appendMessage('ai', "Error: " + err.message);
+            } finally {
+                // Always re-enable input
+                ui.queryInput.disabled = false;
+                ui.sendBtn.disabled = false;
+                ui.queryInput.focus();
+            }
+        }
+
+        function appendMessage(role, text) {
+            const container = document.createElement('div');
+            container.className = `flex gap-4 ${role === 'user' ? 'justify-end' : ''}`;
+            
+            const contentHtml = `
+                ${role === 'ai' ? `
+                    <div class="w-8 h-8 rounded-lg bg-blue-600/20 border border-blue-500/30 flex items-center justify-center shrink-0">
+                        <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+                    </div>
+                ` : ''}
+                <div class="p-4 ${role === 'user' ? 'bg-blue-600 text-white rounded-br-none' : 'bg-white/5 border border-white/10 text-gray-200 rounded-tl-none'} max-w-[80%] rounded-2xl text-sm leading-relaxed">
+                    ${text.replace(/\n/g, '<br>')}
+                </div>
+            `;
+            
+            container.innerHTML = contentHtml;
+            ui.chatMessages.appendChild(container);
+            ui.chatMessages.scrollTop = ui.chatMessages.scrollHeight;
+        }
+
+        function resetSteps() {
+            Object.values(ui.steps).forEach(s => s.classList.remove('active'));
+        }
+
+        function activateStep(n) {
+            ui.steps[n].classList.add('active');
+        }
+
+        function visualizeReranking(results) {
+            ui.rerankVis.innerHTML = results.slice(0, 5).map((r, i) => {
+                const scoreDiff = (r.rerank_score - r.original_score).toFixed(2);
+                const isPositive = scoreDiff > 0;
+                
+                return `
+                    <div class="rerank-card p-3 glass rounded-lg border border-white/5 text-[10px]">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="px-1.5 py-0.5 rounded bg-white/5 text-gray-400">Rank #${i+1}</span>
+                            <span class="${isPositive ? 'text-green-400' : 'text-red-400'} font-bold">
+                                ${isPositive ? '↑' : '↓'} ${scoreDiff}
+                            </span>
+                        </div>
+                        <div class="text-gray-500 line-clamp-2 italic mb-2">"${r.content.substring(0, 100)}..."</div>
+                        <div class="flex gap-4 text-[9px] font-mono">
+                            <div>Vec: <span class="text-blue-400">${r.original_score.toFixed(3)}</span></div>
+                            <div>Rerank: <span class="text-purple-400">${r.rerank_score.toFixed(3)}</span></div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        init();
+        // Auto-focus after a short delay
+        setTimeout(() => ui.queryInput.focus(), 500);
+    </script>
+</body>
+</html>
