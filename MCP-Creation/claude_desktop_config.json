@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "test-case-explorer": {
+      "command": "C:\\Users\\Advika\\AppData\\Local\\Programs\\Python\\Python313\\python.exe",
+      "args": [
+        "d:\\AI Testing Course\\AITestBlueprint\\MCP-Creation\\tc_mcp.py"
+      ]
+    }
+  }
+}
